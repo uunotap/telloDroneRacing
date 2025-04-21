@@ -1,0 +1,20 @@
+
+
+
+##installation
+###Get workspace
+   Install "drone_racing_ros2" workspace(ws) 
+###Download/build
+   cd ~/drone_racing_ros2_ws/src
+   git clone https://github.com/uunotap/telloDroneRacing.git
+   cd ..
+   source /opt/ros/galactic/setup.sh
+   colcon build
+   
+ 
+ 
+##Running
+   cd ~/drone_racing_ros2_ws
+   source ./install/setup.bash
+   (gazebo...?)
+   ros2 launch telloDroneRacing example.py   
