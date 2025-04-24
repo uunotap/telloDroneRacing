@@ -25,7 +25,8 @@ class CamSubscriber(Node):
             '/drone1/image_raw',
             self.listener_callback,
             qos_profile)
-        
+        #'/drone1/image_raw'
+        #/image_raw
         self.get_logger().info("ImageProcessor node has been started.")
 
 

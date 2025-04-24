@@ -23,8 +23,7 @@ class TargetDetection(Node):
         self.publisher = self.create_publisher(Image,'gates',qos_profile)
         
         ##Same as image_proc, which might not be needed on the physical drone
-        self.subscriber = self.create_subscription
-        (
+        self.subscription = self.create_subscription(
             Image,
             '/image_raw',
             self.listener_callback,
@@ -38,11 +37,12 @@ class TargetDetection(Node):
 
     def listener_callback(self, msg):
         try:
-            cv_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
+            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
             #Gate detection here?
             #Pub//Call planning?
-            
-            gray=cv2.cvtColor(cv_image, cv2.COLOR_BAYER_GR2GRAY)
+        
+            gray=cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+
             #self.publisher.publish(self.bridge.cv2_to_imgmsg(gray))
         
         except Exception as e:
