@@ -61,13 +61,13 @@ class Controller(Node):
     def target_callback(self, msg):
         self.get_logger().error(f"msg: {msg}")
         cmd=Twist()
-        if msg.z != -1.0:
+        if float(msg.z) != -1.0:
             self.state == State.SEEKING
         else:
             self.state == State.MOVING
 
-        try:
-            if self.state == State.RESET:
+
+        if self.state == State.RESET:
                 cmd.angular.x = 0.0
                 cmd.linear.x  = 0.0
                 cmd.angular.y = 0.0
@@ -77,7 +77,7 @@ class Controller(Node):
                 self.state=State.SEEKING
                 self.get_logger().info("--RESET--")
 
-            elif self.state == State.SEEKING:
+        elif self.state == State.SEEKING:
                 if float(msg.z) ==-1.0:
                     self.get_logger().info("Seeking!")
                     cmd.angular.z = -0.2
@@ -86,7 +86,8 @@ class Controller(Node):
                     self.get_logger().info("HElvetti")    
                     self.state= State.MOVING
         
-            if self.state == State.MOVING:                    
+        if self.state == State.MOVING:              
+                
                 self.get_logger().info("Doing")
                 
 
@@ -108,33 +109,32 @@ class Controller(Node):
                 
 
                 if abs(error_y)>5.0:
-                    self.get_logger().info("Narrowing the y_offset!")
-                    #adjust height
+                    if error_y == -360:    
+                        self.get_logger().info("Y IS WRONG!")
+                        
+                        self.state = State.SEEKING
+                    else: 
+                        self.get_logger().info("Narrowing the y_offset!")
+                    
    
-                    cmd.linear.z = -error_y * 0.0005
-                    #adjust relation
-                elif abs(error_x)>5.0:
+                        cmd.linear.z = -error_y * 0.0005
+                    
+
+                if abs(error_x)>5.0:
                     self.get_logger().info("Narrowing the x_offset!")
                     cmd.linear.z=0.0
-                    cmd.linear.y = -error_x * 0.0005 
-                    cmd.angular.z = -error_x * 0.00005
-                    cmd.linear.x = -0.2
+
+                    cmd.linear.y = -error_x * 0.0005 #move diagonally
+                    
+                    cmd.angular.z = -error_x * 0.00005 #turn
+
+                    cmd.linear.x = -0.002 #move backwards
                 else:
                     self.get_logger().info("Moving!")
                     cmd.linear.x = 0.2
 
-        except Exception as e:
         
-            self.get_logger().error(f"Failed to convert image: {e}")
-        
-            return            
-                #cmd.angular.x = -error_x * 0.0005  #turn?
-
-                #  # adjust for horizontal error
-                #cmd.linear.x  = 0 # move worward  
-
-        finally:
-            self.mov_pub.publish(cmd)
+        self.mov_pub.publish(cmd)
 
 
 
