@@ -50,6 +50,7 @@ class TargetDetection(Node):
             color=cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
             lower=np.array([45,30,45], dtype="uint8")
             higher=np.array([80,255,98], dtype="uint8")
+
             mask=cv2.inRange(color, lower, higher)
 
 
@@ -71,16 +72,23 @@ class TargetDetection(Node):
                     #self.get_logger().info("detection")
                     #lsit of contours? -> [(center off x-y, size), ...] choose the "largest"?
                     gates.append((center, w+h))
-        
+            
+            tar=Point()
             if gates != []:
                 closest = max(gates, key=lambda x: x[1]) #largst so probably nearby
                 cv2.circle(cv_image, closest[0],10,(255,0,0), 0)
-                self.imag_pub.publish(self.bridge.cv2_to_imgmsg(cv_image))
-                tar=Point()
+                self.imag_pub.publish(self.bridge.cv2_to_imgmsg(cv_image))    
                 tar.x=float(closest[0][0])
                 tar.y=float(closest[0][1])
-                self.target_pub.publish(tar)
-        
+                
+
+            else:
+                tar.z = -1.0 #Tell the controller there's no target
+                
+            #Stop detection pass some value through?
+
+
+            self.target_pub.publish(tar)
             #jank way to gain the size
             #s= cv_image.shape
             #self.get_logger().error(f"shape: {s}")
