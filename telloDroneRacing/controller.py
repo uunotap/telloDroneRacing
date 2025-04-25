@@ -10,10 +10,14 @@ import json
 
 
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist, Point
 from tello_msgs.srv import TelloAction
 
 from std_msgs.msg import String
+from std_msgs.msg import Int16
+
+
+
 
 class Controller(Node):
 
@@ -32,14 +36,10 @@ class Controller(Node):
         #Type: geometry_msgs/msg/Twist
         
 
-        ##Same as image_proc, which might not be needed on the physical drone
-        self.subscription = self.create_subscription(
-            Image,
-            '/gates',
-            self.image_callback,
-            qos_profile)
-        #'/drone1/image_raw'
-        #'/image_raw'
+        # subscription to target, which is the offset from the center of the camera feed from the closest detected gate 
+        # 
+        self.subscription = self.create_subscription(Point, '/target', self.target_callback, qos_profile)
+        
 
 
 
@@ -57,23 +57,36 @@ class Controller(Node):
         ##^^
 
 
-    def image_callback(self, msg):
+    def target_callback(self, msg):
         try:
-            cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            self.get_logger().info("Moving")
+            #lower x is left higher right
+            x_offset=msg.x
+            #lower y is up higher is down
+            y_offset=msg.y
 
+            #image size, refer to jank code in target detect
+            #(720, 960, 3)
+            # x center = 480            
+            # y center = 360
 
+            cmd=Twist()
+
+            error_x = x_offset - 480 # how much to turn
+
+            cmd.linear.x = 0.2  # constant forward speed
+            cmd.linear.y = -error_x * 0.005  # adjust for horizontal error
+
+            self.mov_pub.publish(cmd)
+
+            
 
         except Exception as e:
         
-            self.get_logger().error(f"Failed to convert image: {e}")
+            self.get_logger().error(f"Failed to get target: {e}")
         
             return
 
-
-        # Display image
-        cv2.imshow("Drone Camera View", cv_image)
-        cv2.waitKey(1)  # required for OpenCV window to refresh
-        #The physical drone driver creates it's own windows for the image_raw topic, so better 
 
 
 
