@@ -78,11 +78,13 @@ class TargetDetection(Node):
                 closest = max(gates, key=lambda x: x[1]) #largst so probably nearby
                 cv2.circle(cv_image, closest[0],10,(255,0,0), 0)
                 self.imag_pub.publish(self.bridge.cv2_to_imgmsg(cv_image))    
+                self.get_logger().error(f"closest : {closest}")
                 tar.x=float(closest[0][0])
                 tar.y=float(closest[0][1])
-                
+                tar.z= 999.9                
 
-            else:
+            if gates==[]:
+                self.get_logger().info("no target!")
                 tar.z = -1.0 #Tell the controller there's no target
                 
             #Stop detection pass some value through?
