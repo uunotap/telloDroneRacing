@@ -20,6 +20,7 @@ class State(enum.Enum):
     RESET = 0
     SEEKING = 1
     MOVING = 2
+    LANDING = 3
 
 class Controller(Node):
 
@@ -44,9 +45,9 @@ class Controller(Node):
 
         
 
-        self.serv_client=self.create_client(TelloAction, "drone1/tello_action")
+        self.serv_client=self.create_client(TelloAction, "/drone1/tello_action")
         while not self.serv_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().info('Waiting for /drone1/tello_action service...')
+            self.get_logger().info('Waiting for /tello_action service...')
         
         self.state = State.SEEKING
         act=TelloAction.Request()
@@ -83,7 +84,7 @@ class Controller(Node):
                     cmd.angular.z = -0.2
                     cmd.linear.x  =  0.0  
                 else:
-                    self.get_logger().info("HElvetti")    
+                    
                     self.state= State.MOVING
         
         if self.state == State.MOVING:              
@@ -109,14 +110,14 @@ class Controller(Node):
                 
 
                 if abs(error_y)>5.0:
-                    if error_y == -360:    
+                    if error_y == 360:    
                         self.get_logger().info("Y IS WRONG!")
                         
                         self.state = State.SEEKING
                     else: 
                         self.get_logger().info("Narrowing the y_offset!")
                     
-   
+                        #cmd.angular.z = -error_y * 0.00005 #Dunno maybe good?
                         cmd.linear.z = -error_y * 0.0005
                     
 
@@ -128,13 +129,29 @@ class Controller(Node):
                     
                     cmd.angular.z = -error_x * 0.00005 #turn
 
-                    cmd.linear.x = -0.002 #move backwards
+                    cmd.linear.x = -0.05 #move backwards
+                    if int(msg.z) < 200:
+                        self.get_logger().info("Going a bit closer!")
+                        cmd.linear.x = 0.1
+                        
+                        #If there is definetly a red sign a head
+                        
                 else:
                     self.get_logger().info("Moving!")
-                    cmd.linear.x = 0.2
+                    cmd.linear.x = 0.5
 
-        
+
+
+
         self.mov_pub.publish(cmd)
+
+        if int(msg.z)<=-700:
+            self.get_logger().info("Landing...")
+            self.state=State.LANDING
+            act=TelloAction.Request()
+            act.cmd ="land"
+            self.serv_client.call(act)
+
 
 
 
