@@ -19,6 +19,12 @@ class TargetDetection(Node):
         cv2.namedWindow("drone detection view", cv2.WINDOW_NORMAL)
         cv2.resizeWindow("drone detection view",1080, 540)
         cv2.moveWindow("drone detection view", 0, 0)
+
+        #cv2.namedWindow("masks", cv2.WINDOW_NORMAL)
+        #cv2.resizeWindow("masks",900, 300)
+        
+
+
         #Tello drone/sim require naming a policy for connection
         qos_profile = QoSProfile(depth=10)
         qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
@@ -26,11 +32,12 @@ class TargetDetection(Node):
         self.imag_pub = self.create_publisher(Image,'/gates',qos_profile)
         self.target_pub = self.create_publisher(Point,'/target',qos_profile)
         ##Same as image_proc, which might not be needed on the physical drone
-        self.subscription = self.create_subscription(
-            Image,
-            '/drone1/image_raw',
-            self.listener_callback,
-            qos_profile)
+
+        #CHANGE
+        #self.subscription = self.create_subscription(Image,'/image_raw', self.listener_callback, qos_profile)
+        self.subscription = self.create_subscription(Image,'/drone1/image_raw', self.listener_callback, qos_profile)
+        
+        
         #'/drone1/image_raw'
         #'/image_raw'
 
@@ -57,16 +64,29 @@ class TargetDetection(Node):
         
             #Detect green gate?
             color=cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV) #change to a limited color scheme
-            
-            lower=np.array([45,30,45], dtype="uint8")
-            higher=np.array([80,255,98], dtype="uint8")
+            #The gate tends to be a bit of a reddish green with this color range
+
+            # Set font
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.7
+            font_color = (0, 0, 0)
+            thickness = 2
+
+
+
+
+
+
+            # blue green red
+            lower=np.array([40,60,45], dtype="uint8")
+            higher=np.array([95,255,130], dtype="uint8")
 
             mask=cv2.inRange(color, lower, higher)
 
             #Detect red "gate"? -> stop sign?
             
-            lower2=np.array([0,0,50], dtype="uint8")
-            higher2=np.array([30,30,255], dtype="uint8")
+            lower2=np.array([30,30,90], dtype="uint8")
+            higher2=np.array([75,75,255], dtype="uint8")
             #I don't want to use that color shift it breaks red in to green
             mask2=cv2.inRange(cv_image, lower2, higher2)
 
@@ -76,7 +96,7 @@ class TargetDetection(Node):
             corners, ids, _ = self.aruco_detector.detectMarkers(gray)
 
             
-            #create an target?    
+            #Green target detection
             contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
             gates=[]
@@ -98,10 +118,10 @@ class TargetDetection(Node):
                     #lsit of contours? -> [(center off x-y, size), ...] choose the "largest"?
                     gates.append((center, w+h))
 
-
+            markers=[]
             if corners:
                 
-                markers=[]
+
                 for p in corners:
                     qr_outline=p[0]
                     #center=(int(np.mean(qr_outline[:, 0])), int(np.mean(qr_outline[:, 1])))
@@ -127,7 +147,7 @@ class TargetDetection(Node):
                     center_tuple = (int(center[0]), int(center[1]))
                     
                     cv2.circle(cv_image, center_tuple, 5, (0,0,255),-1)
-                    gates.append((center_tuple, len(markers) * 225))
+                    gates.append((center_tuple, len(markers) * 250))
 
                 else:
                     gates.append((markers[0],200))
@@ -165,8 +185,24 @@ class TargetDetection(Node):
                     center = np.mean(points, axis=0)
                     center_tuple = (int(center[0]), int(center[1]))
                     cv2.circle(cv_image, center_tuple, 8, (125,125,125),-1)
-                    gates.append((center_tuple, 449))
+                    gates.append((center_tuple, 600)) #hotfix 4 600<-500<-449
                 
+
+                
+                
+                for g in gates:
+                    g=((g[0][0],g[0][1]+25),g[1]) #hotfix2, adjust height a bit up
+
+                        # Get the text size to center it nicely
+                    (text_width, text_height), _ = cv2.getTextSize(str(g[1]), font, font_scale, thickness)
+
+                    # Calculate text position slightly under the point
+                    text_x = g[0][0] - text_width // 2
+                    text_y = g[0][1] + 20 + text_height // 2  # 20 pixels below the point
+
+                    # Put the text
+                    cv2.putText(cv_image, str(g[1]), (text_x, text_y), font, font_scale, font_color, thickness)        
+
 
 
 
@@ -177,10 +213,15 @@ class TargetDetection(Node):
                 self.imag_pub.publish(self.bridge.cv2_to_imgmsg(cv_image))    
                 
                 
+
+
+
                 #self.get_logger().error(f"closest : {closest}")
                 tar.x=float(closest[0][0])
                 tar.y=float(closest[0][1])
                 tar.z= float(closest[1])
+
+
             else:
                 #self.get_logger().info("no target!")
                 tar.z = -1.0 #Tell the controller there's no target
@@ -200,16 +241,24 @@ class TargetDetection(Node):
             return
 
 
-        # Display image
-        #cv2.imshow("Drone Camera View", cv_image)
-        
-        #to see the mask
-        #cv2.imshow("Gate detection", mask)
-        
-        #To all layers of processing
-        cv2.imshow("drone detection view",np.hstack([cv2.cvtColor(mask2, cv2.COLOR_GRAY2BGR), cv_image]))
 
 
+
+        #making a combined mask of detections
+        #Green
+        _, mask= cv2.threshold(mask, 127,255,cv2.THRESH_BINARY)
+        #Red
+        _, mask2= cv2.threshold(mask2, 127,255,cv2.THRESH_BINARY)
+        #Blue, for qr-tag detection
+        blue =np.zeros_like(mask)
+        for tag in markers:
+            cv2.circle(blue, tag, 5,(255),-1)        
+        detection=cv2.merge([blue, mask, mask2])
+
+        cv2.imshow("drone detection view",np.hstack([cv_image, detection]))
+
+        #cv2.imshow("masks",np.hstack([cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR),color,cv2.cvtColor(mask2, cv2.COLOR_GRAY2BGR)]))
+        
         cv2.waitKey(1)  # required for OpenCV window to refresh
         #The physical drone driver creates it's own windows for the image_raw topic, so better 
 
