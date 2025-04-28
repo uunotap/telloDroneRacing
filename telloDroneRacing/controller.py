@@ -33,11 +33,11 @@ class Controller(Node):
         qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
         
         
-        self.mov_pub = self.create_publisher(Twist,'/drone1/cmd_vel', 10)
-        self.serv_client=self.create_client(TelloAction, "/drone1/tello_action")
+        #self.mov_pub = self.create_publisher(Twist,'/drone1/cmd_vel', 10)
+        #self.serv_client=self.create_client(TelloAction, "/drone1/tello_action")
         
-        #self.mov_pub = self.create_publisher(Twist,'/cmd_vel', 10)
-        #self.serv_client=self.create_client(TelloAction, "/tello_action")
+        self.mov_pub = self.create_publisher(Twist,'/cmd_vel', 10)
+        self.serv_client=self.create_client(TelloAction, "/tello_action")
 
         #/cmd_vel
         #/drone1/cmd_vel
@@ -72,16 +72,16 @@ class Controller(Node):
     def send_cmd_vel(self):
 
         cmd=self.current_cmd
-
+        minimpulse=0.05
         for field in ['x', 'y', 'z']:
             val = getattr(cmd.linear, field)
-            if abs(val) < 0.05 and abs(val) > 0.0:  # Skip perfect zeros
-                setattr(cmd.linear, field, 0.05 * (1 if val >= 0 else -1))
+            if abs(val) < minimpulse and abs(val) > 0.0:  # Skip perfect zeros
+                setattr(cmd.linear, field, minimpulse * (1 if val >= 0 else -1))
 
         for field in ['x', 'y', 'z']:
             val = getattr(cmd.angular, field)
-            if abs(val) < 0.05 and abs(val) > 0.0:
-                setattr(cmd.angular, field, 0.05 * (1 if val >= 0 else -1))
+            if abs(val) < minimpulse and abs(val) > 0.0:
+                setattr(cmd.angular, field, minimpulse * (1 if val >= 0 else -1))
         
         if cmd.angular.z>0:
             if cmd.linear.x>0:
@@ -112,9 +112,9 @@ class Controller(Node):
         if self.state == State.SEEKING:
                 
                 self.get_logger().info("Seeking!")
-                cmd.angular.z = -0.2
+                cmd.angular.z = -0.5
                 #cmd.linear.x  =  0.0001
-                cmd.linear.z  =  0.005  #hotfix3 get some height
+                cmd.linear.z  =  0.001  #hotfix3 get some height
                 if int(msg.z)==-1:
                     self.state= State.RESET
         
@@ -137,7 +137,7 @@ class Controller(Node):
                 error_x = x_offset - 480 # how much to move
                 error_y = y_offset - 360 # how much to move
 
-                if abs(error_x)>5.0:
+                if abs(error_x)>20.0:
                     self.get_logger().info("Narrowing the x_offset!")
                     cmd.linear.z=0.0
 
@@ -147,8 +147,8 @@ class Controller(Node):
                     
                     cmd.angular.z = -error_x * 0.0005 #turn
 
-                    cmd.linear.x = -0.00005 #move backwards
-                    if int(msg.z) < 400:
+                    #cmd.linear.x = -0.00005 #move backwards
+                    if int(msg.z) < 800:
                         self.get_logger().info("Going a bit closer!")
                         cmd.linear.x = 0.2
                         
@@ -158,7 +158,7 @@ class Controller(Node):
 
                 
 
-                if abs(error_y)>5.0:
+                if abs(error_y)>10.0:
                     if error_y == -360: #due to shite hotfix 260<-360
                         self.get_logger().info("Y IS WRONG!")
                         
@@ -166,8 +166,8 @@ class Controller(Node):
                     else: 
                         self.get_logger().info("Narrowing the y_offset!")
                     
-                        #cmd.angular.z = -error_y * 0.00005 #Dunno maybe good?
-                        cmd.linear.z = -error_y * 0.005
+                        cmd.linear.x = -error_y * 0.00005 #Dunno maybe good?
+                        cmd.linear.z = -error_y * 0.0005
                     
 
                         

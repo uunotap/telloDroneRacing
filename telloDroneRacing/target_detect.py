@@ -34,8 +34,8 @@ class TargetDetection(Node):
         ##Same as image_proc, which might not be needed on the physical drone
 
         #CHANGE
-        #self.subscription = self.create_subscription(Image,'/image_raw', self.listener_callback, qos_profile)
-        self.subscription = self.create_subscription(Image,'/drone1/image_raw', self.listener_callback, qos_profile)
+        self.subscription = self.create_subscription(Image,'/image_raw', self.listener_callback, qos_profile)
+        #self.subscription = self.create_subscription(Image,'/drone1/image_raw', self.listener_callback, qos_profile)
         
         
         #'/drone1/image_raw'
@@ -191,7 +191,7 @@ class TargetDetection(Node):
                 
                 
                 for g in gates:
-                    g=((g[0][0],g[0][1]+25),g[1]) #hotfix2, adjust height a bit up
+                    #g=((g[0][0],g[0][1]-50),g[1]) #hotfix2, adjust height a bit up
 
                         # Get the text size to center it nicely
                     (text_width, text_height), _ = cv2.getTextSize(str(g[1]), font, font_scale, thickness)
