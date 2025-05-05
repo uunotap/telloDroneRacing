@@ -33,11 +33,11 @@ class Controller(Node):
         qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
         
         ## CHANGE
-        self.mov_pub = self.create_publisher(Twist,'/drone1/cmd_vel', 10)
-        self.serv_client=self.create_client(TelloAction, "/drone1/tello_action")
+        #self.mov_pub = self.create_publisher(Twist,'/drone1/cmd_vel', 10)
+        #self.serv_client=self.create_client(TelloAction, "/drone1/tello_action")
         
-        #self.mov_pub = self.create_publisher(Twist,'/cmd_vel', 10)
-        #self.serv_client=self.create_client(TelloAction, "/tello_action")
+        self.mov_pub = self.create_publisher(Twist,'/cmd_vel', 10)
+        self.serv_client=self.create_client(TelloAction, "/tello_action")
 
 
         #/cmd_vel
@@ -150,7 +150,9 @@ class Controller(Node):
 
                 if int(msg.z) == -1:
                     self.state= State.RESET
-
+                elif self.x_err > 30.0 or self.y_err > 10.0:
+                    self.x_err = 1.0
+                    self.y_err = 0.5
 
                 self.get_logger().info("state moving")
                 
@@ -171,12 +173,14 @@ class Controller(Node):
 
                 if abs(error_x)>self.x_err:
                     self.get_logger().info("Narrowing the x_offset!")
-                    cmd.linear.z=0.0
+                    
 
                     cmd.linear.y = -error_x * 0.0005 #move diagonally
 
                     #cmd.linear.z = 0.005 #move a bit up #hotfix 1
-                    
+                    #cmd.linear.z=0.0
+
+
                     cmd.angular.z = -error_x * 0.0005 #turn
 
                     #cmd.linear.x = -0.00005 #move backwards
@@ -197,7 +201,7 @@ class Controller(Node):
 
                     self.get_logger().info("Narrowing the y_offset!")
                     
-                    cmd.linear.x = -error_y * 0.00005 #Dunno maybe good?
+                    #cmd.linear.x = -error_y * 0.00005 #Dunno maybe good?
                     cmd.linear.z = -error_y * 0.0005
                     
                     ## Hotfix x4?
@@ -208,14 +212,14 @@ class Controller(Node):
                         
                 else:
                     self.get_logger().info("Moving!")
-                    cmd.linear.x = 0.75
-
+                    cmd.linear.x = 0.5
+                    cmd.linear.z = -0.1
 
         #self.get_logger().error(f"movement:\n {cmd}")
         self.current_cmd = cmd 
 	
 	## IF THE SIGN IS "LARGE" ENOUGH, meaning close probably
-        if int(msg.z)<=-800:
+        if int(msg.z)<=-300:
             self.get_logger().info("Landing...")
             self.state=State.LANDING
             act=TelloAction.Request()
