@@ -306,6 +306,25 @@ class TargetDetection(Node):
         
         cv2.waitKey(1)  # required for OpenCV window to refresh
 
+def detect(self,c):
+	shape ="null"
+	peri = cv2.archLength(c, True)
+	approx = cv2.approxPolyDP(c, 0.04 * peri, True)
+	
+	if len(approx) == 4
+		(x,y,w,h)cv2.boundingRect(approx)
+		ar = w /float(h)
+		shape = "square"
+
+	else:
+		shape = "circle"
+	
+
+return shape
+
+	
+	
+
 
 
 
