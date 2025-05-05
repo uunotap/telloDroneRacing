@@ -32,12 +32,13 @@ class Controller(Node):
         qos_profile = QoSProfile(depth=10)
         qos_profile.reliability = QoSReliabilityPolicy.BEST_EFFORT
         
+        ## CHANGE
+        self.mov_pub = self.create_publisher(Twist,'/drone1/cmd_vel', 10)
+        self.serv_client=self.create_client(TelloAction, "/drone1/tello_action")
         
-        #self.mov_pub = self.create_publisher(Twist,'/drone1/cmd_vel', 10)
-        #self.serv_client=self.create_client(TelloAction, "/drone1/tello_action")
-        
-        self.mov_pub = self.create_publisher(Twist,'/cmd_vel', 10)
-        self.serv_client=self.create_client(TelloAction, "/tello_action")
+        #self.mov_pub = self.create_publisher(Twist,'/cmd_vel', 10)
+        #self.serv_client=self.create_client(TelloAction, "/tello_action")
+
 
         #/cmd_vel
         #/drone1/cmd_vel
@@ -50,7 +51,11 @@ class Controller(Node):
         # subscription to target, which is the offset from the center of the camera feed from the closest detected gate 
         self.subscription = self.create_subscription(Point, '/target', self.target_callback, qos_profile)
         
-
+        ## Hotfix x4?        
+        # THE ACCEPTABLE "ERROR"
+        self.err_pub = self.create_publisher(Point,'/err',qos_profile)        
+        self.x_err=0.0
+        self.y_err=0.0
         
 
         while not self.serv_client.wait_for_service(timeout_sec=1.0):
@@ -64,28 +69,43 @@ class Controller(Node):
 
         self.get_logger().info("controller has been started.")
 
-
+	## Hotfix x2?
         self.create_timer(0.1, self.send_cmd_vel)  # every 0.1s = 10Hz
         self.current_cmd = Twist()
 
 
     def send_cmd_vel(self):
+    
+    	## Hotfix 4? -> additional debug info 
+        
+        err=Point()
+        err.x=self.x_err
+        err.y=self.y_err        
+        self.err_pub.publish(err)
 
+
+
+
+	## Hotfix x3?? *x4 made minnimpulse additive
         cmd=self.current_cmd
+        self.mov_pub.publish(cmd)
+
         minimpulse=0.05
+
+
         for field in ['x', 'y', 'z']:
             val = getattr(cmd.linear, field)
             if abs(val) < minimpulse and abs(val) > 0.0:  # Skip perfect zeros
-                setattr(cmd.linear, field, minimpulse * (1 if val >= 0 else -1))
+                setattr(cmd.linear, field, val + minimpulse * (1 if val >= 0 else -1))
 
         for field in ['x', 'y', 'z']:
             val = getattr(cmd.angular, field)
             if abs(val) < minimpulse and abs(val) > 0.0:
-                setattr(cmd.angular, field, minimpulse * (1 if val >= 0 else -1))
+                setattr(cmd.angular, field, val + minimpulse * (1 if val >= 0 else -1))
         
-        if cmd.angular.z>0:
-            if cmd.linear.x>0:
-                cmd.linear.x+=0.05
+        #if cmd.angular.z>0:
+        #    if cmd.linear.x>0:
+        #        cmd.linear.x+=0.05
             
         
         
@@ -97,30 +117,42 @@ class Controller(Node):
 
     def target_callback(self, msg):
         #self.get_logger().error(f"msg: {msg}")
-        cmd=Twist()
+        cmd=self.current_cmd
+
         if int(msg.z) != -1:
+            self.get_logger().info("moving...")
             self.state = State.MOVING
-        else:
+
+        elif self.state == State.RESET:
+            self.get_logger().info("RESET")
             self.state = State.SEEKING
-            cmd.angular.x = 0.0
-            cmd.linear.x  = 0.0
-            cmd.angular.y = 0.0
-            cmd.linear.y  = 0.0
-            cmd.angular.z = 0.0
-            cmd.linear.z  = 0.0
+
+            self.x_err=0.2
+            self.y_err=0.1
+            cmd=Twist()
             
+        else:
+            self.get_logger().info("Seeking!")
+
+ 
+
+
         if self.state == State.SEEKING:
+                self.get_logger().info("state seek")        
                 
-                self.get_logger().info("Seeking!")
+                #Tur
                 cmd.angular.z = -0.5
-                #cmd.linear.x  =  0.0001
+          
                 cmd.linear.z  =  0.001  #hotfix3 get some height
-                if int(msg.z)==-1:
+
+
+        elif self.state == State.MOVING:              
+
+                if int(msg.z) == -1:
                     self.state= State.RESET
-        
-        if self.state == State.MOVING:              
-                
-                self.get_logger().info("Doing")
+
+
+                self.get_logger().info("state moving")
                 
 
                 #image size, refer to jank code in target detect
@@ -137,7 +169,7 @@ class Controller(Node):
                 error_x = x_offset - 480 # how much to move
                 error_y = y_offset - 360 # how much to move
 
-                if abs(error_x)>20.0:
+                if abs(error_x)>self.x_err:
                     self.get_logger().info("Narrowing the x_offset!")
                     cmd.linear.z=0.0
 
@@ -155,19 +187,22 @@ class Controller(Node):
                         
                         
                         #If there is definetly a red sign a head
-
+                    
+                    ## Hotfix x4?
+                    # INCREASE THE ACCEPTABLE X ERROR
+                    self.x_err+=0.1
                 
 
-                if abs(error_y)>10.0:
-                    if error_y == -360: #due to shite hotfix 260<-360
-                        self.get_logger().info("Y IS WRONG!")
-                        
-                        self.state = State.SEEKING
-                    else: 
-                        self.get_logger().info("Narrowing the y_offset!")
+                if abs(error_y)>self.y_err:
+
+                    self.get_logger().info("Narrowing the y_offset!")
                     
-                        cmd.linear.x = -error_y * 0.00005 #Dunno maybe good?
-                        cmd.linear.z = -error_y * 0.0005
+                    cmd.linear.x = -error_y * 0.00005 #Dunno maybe good?
+                    cmd.linear.z = -error_y * 0.0005
+                    
+                    ## Hotfix x4?
+                    # INCREASE THE ACCEPTABLE Y ERROR
+                    self.y_err+=0.1
                     
 
                         
@@ -178,7 +213,8 @@ class Controller(Node):
 
         #self.get_logger().error(f"movement:\n {cmd}")
         self.current_cmd = cmd 
-
+	
+	## IF THE SIGN IS "LARGE" ENOUGH, meaning close probably
         if int(msg.z)<=-800:
             self.get_logger().info("Landing...")
             self.state=State.LANDING
@@ -201,6 +237,7 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        ## Send message to land when the code is interrupted.
         act=TelloAction.Request()
         act.cmd ="land"
         node.serv_client.call(act)
