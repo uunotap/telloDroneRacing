@@ -312,7 +312,7 @@ def detect(self,c):
 	approx = cv2.approxPolyDP(c, 0.04 * peri, True)
 	
 	if len(approx) == 4
-		(x,y,w,h)cv2.boundingRect(approx)
+		(x,y,w,h) ) = cv2.boundingRect(approx)
 		ar = w /float(h)
 		shape = "square"
 
