@@ -150,9 +150,9 @@ class Controller(Node):
 
                 if int(msg.z) == -1:
                     self.state= State.RESET
-                elif self.x_err > 30.0 or self.y_err > 10.0:
+                elif self.x_err > 25.0 or self.y_err > 15.0:
                     self.x_err = 1.0
-                    self.y_err = 0.5
+                    self.y_err = 0.1
 
                 self.get_logger().info("state moving")
                 
@@ -198,7 +198,7 @@ class Controller(Node):
                 
 
                 if abs(error_y)>self.y_err:
-
+                    
                     self.get_logger().info("Narrowing the y_offset!")
                     
                     #cmd.linear.x = -error_y * 0.00005 #Dunno maybe good?
@@ -207,13 +207,17 @@ class Controller(Node):
                     ## Hotfix x4?
                     # INCREASE THE ACCEPTABLE Y ERROR
                     self.y_err+=0.1
-                    
+                    if (error_y>0):
+                        cmd.linear.x = -0.01 #move backwards
+                    if (error_y<0):
+                        cmd.linear.x = 0.01 #move backwards
 
-                        
+
+                    
                 else:
                     self.get_logger().info("Moving!")
                     cmd.linear.x = 0.5
-                    cmd.linear.z = -0.1
+                    cmd.linear.z = -0.2
 
         #self.get_logger().error(f"movement:\n {cmd}")
         self.current_cmd = cmd 
