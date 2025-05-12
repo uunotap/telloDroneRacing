@@ -37,8 +37,8 @@ class TargetDetection(Node):
         ##Same as image_proc, which might not be needed on the physical drone
 
         #CHANGE
-        #self.subscription = self.create_subscription(Image,'/image_raw', self.listener_callback, qos_profile)
-        self.subscription = self.create_subscription(Image,'/drone1/image_raw', self.listener_callback, qos_profile)
+        self.subscription = self.create_subscription(Image,'/image_raw', self.listener_callback, qos_profile)
+        #self.subscription = self.create_subscription(Image,'/drone1/image_raw', self.listener_callback, qos_profile)
         
 	## TO SEE THE ACCEPTABLE ERROR RADIUS
         self.subscription = self.create_subscription(Point, '/err', self.update_err, qos_profile)
@@ -156,7 +156,7 @@ class TargetDetection(Node):
                     cv2.circle(cv_image, center_tuple, 5, (0,0,255),-1)
 
                 
-                if len(markers)>1:
+                if len(markers)==3:
                     ## Better area calculation if it can be made to work.
                     #AAAAAAAAAAAAAAAAA, why can't i get this to work
                     #[np.array(markers).reshape((-1,1,2)).astype(np.int32)]
@@ -166,16 +166,33 @@ class TargetDetection(Node):
 		
 			## THE AVERAGE COORDINATES OF THE QR-CODES, it is the "center". This does work suprisingly well.
                     center = np.mean(markers, axis=0)
-                    center_tuple = (int(center[0]), int(center[1]))
+                    center_tuple = (int(center[0]), int(center[1])-50)
                     
                     ### MAKING A CENTRAL POINT BETWEEN QR CODES WHICH HAS A LARGE VALUE
                     ## This might need to be adjusted to be larger than the average weak center, in all cases
                     cv2.circle(cv_image, center_tuple, 5, (0,0,255),-1)
-                    gates.append((center_tuple, len(markers) * 250))
+                    gates.append((center_tuple, len(markers) * 260))
+                
+                if len(markers)==2:
+                    ## Better area calculation if it can be made to work.
+                    #AAAAAAAAAAAAAAAAA, why can't i get this to work
+                    #[np.array(markers).reshape((-1,1,2)).astype(np.int32)]
+                    #cv2.drawContours(cv_image, markers , 1,(75,125,125),0)
+                    #hull=cv2.convexHull(markers).reshape(-1,1,2)
+                    #area=cv2.contourArea(hull)
+		
+			## THE AVERAGE COORDINATES OF THE QR-CODES, it is the "center". This does work suprisingly well.
+                    center = np.mean(markers, axis=0)
+                    center_tuple = (int(center[0]), int(center[1])-200)
+                    
+                    ### MAKING A CENTRAL POINT BETWEEN QR CODES WHICH HAS A LARGE VALUE
+                    ## This might need to be adjusted to be larger than the average weak center, in all cases
+                    cv2.circle(cv_image, center_tuple, 5, (0,0,255),-1)
+                    gates.append((center_tuple, len(markers) * 260))
 
                 else:
                 ## IF there aren't multiple qr-codes it should have a weak value
-                    gates.append((markers[0],200))
+                    gates.append((markers[0],230))
         
 
             ## FIND RED "AREAS", though this might conflict with the "weak" central point thingamajig.
@@ -214,16 +231,16 @@ class TargetDetection(Node):
                     ## Adding "weak" center point, if there are multiple detections.
                     points=[g[0] for g in gates]
                     center = np.mean(points, axis=0)
-                    center_tuple = (int(center[0]), int(center[1]))
+                    center_tuple = (int(center[0]), int(center[1])-50)
                     cv2.circle(cv_image, center_tuple, 8, (125,125,125),-1)
-                    gates.append((center_tuple, 600)) #hotfix 4 600<-500<-449, might be too high now.
+                    gates.append((center_tuple, 450)) #hotfix 4 600<-500<-449, might be too high now.
                 
 
                 
-                ## 
+                ## Additional gate processing
                 for g in gates:
                     ## ADDITIONAL PROCESSING
-                    #g=((g[0][0],g[0][1]-50),g[1]) #hotfix2, adjust height a bit up
+                    g=((g[0][0],g[0][1]-50),g[1]) #hotfix2, adjust height a bit up
 
                     ## WRITING DEBUG "INFO", weight//size whatever, TO EACH DETECTED TARGET
                         
